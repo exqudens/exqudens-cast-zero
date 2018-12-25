@@ -1,0 +1,9 @@
+//archivesBaseName = name
+
+dependencies {
+
+    compileOnly group: "org.projectlombok", name: "lombok", version: "1.16.18"
+
+    testCompile group: "junit", name: "junit", version: "4.12"
+
+}

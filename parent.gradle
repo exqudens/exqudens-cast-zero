@@ -1,0 +1,78 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'maven'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+task sourcesJar(type: Jar, dependsOn: ['classes']) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar, dependsOn: ['javadoc']) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives sourcesJar
+    archives javadocJar
+}
+
+test {
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
+jar {
+    manifest {
+        attributes 'Project-Group': project.group, 'Project-Name': project.name, 'Project-Version': project.version
+    }
+}
+
+eclipse {
+    jdt {
+        sourceCompatibility = property('sourceCompatibility')
+        targetCompatibility = property('targetCompatibility')
+    }
+    project {
+        file {
+            whenMerged { project ->
+                project.buildCommands.clear()
+                project.buildCommands.add(new org.gradle.plugins.ide.eclipse.model.BuildCommand('org.eclipse.jdt.core.javabuilder'))
+                project.natures.clear()
+                project.natures = ['org.eclipse.jdt.core.javanature']
+            }
+        }
+    }
+    classpath {
+        plusConfigurations = [configurations.compileOnly, configurations.testCompileOnly, configurations.testRuntime]
+        minusConfigurations = []
+    }
+}
+
+tasks['eclipse'].doLast {
+    delete '.settings/org.eclipse.wst.common.component'
+    delete '.settings/org.eclipse.wst.common.project.facet.core.xml'
+}
+
+tasks['cleanEclipse'].doLast {
+    delete '.settings'
+    delete 'bin'
+}
+
+tasks['cleanIdea'].doLast {
+    delete '.idea'
+}
+
+tasks['cleanIdea'].dependsOn 'cleanIdeaWorkspace'
+
+repositories {
+    if (System.getenv().GIT_BRANCH == null) {
+        mavenLocal()
+    }
+    mavenCentral()
+}
