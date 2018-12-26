@@ -1,5 +1,3 @@
-//archivesBaseName = name
-
 dependencies {
 
     compileOnly group: "org.projectlombok", name: "lombok", version: "1.16.18"

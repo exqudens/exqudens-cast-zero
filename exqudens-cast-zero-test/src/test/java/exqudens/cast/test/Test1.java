@@ -3,21 +3,26 @@ package exqudens.cast.test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
-import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.utility.MountableFile;
+import org.testcontainers.containers.startupcheck.StartupCheckStrategy;
+import org.testcontainers.shaded.okhttp3.OkHttpClient;
+import org.testcontainers.shaded.okhttp3.Request;
+import org.testcontainers.shaded.okhttp3.Response;
+
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.model.Container;
 
 import exqudens.cast.api.model.Item;
 import exqudens.cast.api.model.Order;
@@ -36,18 +41,51 @@ public class Test1 {
 
             Path source = Paths.get("..", "exqudens-cast-zero-server", "build", "libs", "exqudens-cast-zero-server-1.0.0-component.jar");
             Path target = Paths.get("tmp", "exqudens-cast-zero-server-1.0.0-component.jar");
-            Files.copy(source, target);
+            Objects.requireNonNull(source);
+            Objects.requireNonNull(target);
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
 
             container = new GenericContainer<>("openjdk:8");
+            container.withLabel("name", "app");
             container.withStartupAttempts(1);
             container.withMinimumRunningDuration(Duration.ofSeconds(30));
-            //container.copyFileToContainer(transferable, containerPath);
-            //container.withCopyFileToContainer(MountableFile.forHostPath(Paths.get("..", "exqudens-cast-zero-server", "build", "libs", "exqudens-cast-zero-server-1.0.0-component.jar")), "/usr/src/myapp/");
+            //container.withCopyFileToContainer(MountableFile.forHostPath(path), "/usr/src/myapp/exqudens-cast-zero-server-1.0.0-component.jar");
+            container.withFileSystemBind(target.getParent().toFile().getAbsolutePath(), "/usr/src/myapp");
             container.withCommand("/usr/bin/java", "-jar", "/usr/src/myapp/exqudens-cast-zero-server-1.0.0-component.jar");
             container.withExposedPorts(8080);
-            container.waitingFor(Wait.defaultWaitStrategy());
+            container.withStartupCheckStrategy(new StartupCheckStrategy() {
+                @Override
+                public StartupStatus checkStartupState(DockerClient dockerClient, String containerId) {
+                    try {
+                        List<Container> containers = dockerClient.listContainersCmd().exec();
+                        for (Container c : containers) {
+                            boolean present = c
+                            .getLabels()
+                            .entrySet()
+                            .stream()
+                            .filter(entry -> "name".equals(entry.getKey()))
+                            .map(Entry::getValue)
+                            .filter(name -> "app".equals(name))
+                            .findFirst()
+                            .isPresent();
+                            if (present) {
+                                OkHttpClient client = new OkHttpClient();
+                                Response response = client.newCall(new Request.Builder().url("http://localhost:" + c.ports[0].getPublicPort() + "/").build()).execute();
+                                if (response.code() == 200) {
+                                    return StartupStatus.SUCCESSFUL;
+                                }
+                            }
+                        }
+                        return StartupStatus.FAILED;
+                    } catch (RuntimeException e) {
+                        throw e;
+                    } catch (Throwable e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            });
             container.start();
-            
+
         } catch (RuntimeException e) {
             e.printStackTrace();
             throw e;
@@ -64,37 +102,6 @@ public class Test1 {
         container = null;
     }
 
-    @Test
-    public void test97() {
-        try {
-            ExecResult execResult = container.execInContainer("ls", "/usr/src/myapp");
-            System.out.println(execResult.getStdout());
-        } catch (RuntimeException e) {
-            e.printStackTrace();
-            throw e;
-        } catch (Throwable e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Ignore
-    @Test
-    public void test98() {
-        try {
-            System.out.println("---");
-            Stream.of(Paths.get("..", "exqudens-cast-zero-server", "build", "libs").toFile().listFiles()).map(file -> file.getAbsolutePath() + ": " + file.lastModified()).forEach(System.out::println);
-            System.out.println("---");
-        } catch (RuntimeException e) {
-            e.printStackTrace();
-            throw e;
-        } catch (Throwable e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Ignore
     @Test
     public void test99() {
         try {
@@ -127,7 +134,7 @@ public class Test1 {
                 null
             );
 
-            ExqudensCastClient client = ExqudensCastClient.newInstance("http://localhost", 8080, "", 10000);
+            ExqudensCastClient client = ExqudensCastClient.newInstance("http://localhost", container.getMappedPort(8080), "", 10000);
             graph = client.apiGraphOrder(graph);
 
             List<Order> resultOrders = Graphs.graphToList(graph, Order.class);
