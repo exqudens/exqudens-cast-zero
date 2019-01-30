@@ -1,18 +1,10 @@
 # Directories
-/bin/
-/build/
-/.gradle/
-/.nb-gradle/
-/.idea/
-/.settings/
-
-# Sub Directories
-*/bin/
-*/build/
-*/.gradle/
-*/.nb-gradle/
-*/.idea/
-*/.settings/
+**/bin/
+**/build/
+**/.gradle/
+**/.nb-gradle/
+**/.idea/
+**/.settings/
 
 # Files
 .classpath
