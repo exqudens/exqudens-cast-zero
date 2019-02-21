@@ -33,43 +33,6 @@ jar {
     }
 }
 
-eclipse {
-    jdt {
-        sourceCompatibility = property('sourceCompatibility')
-        targetCompatibility = property('targetCompatibility')
-    }
-    project {
-        file {
-            whenMerged { project ->
-                project.buildCommands.clear()
-                project.buildCommands.add(new org.gradle.plugins.ide.eclipse.model.BuildCommand('org.eclipse.jdt.core.javabuilder'))
-                project.natures.clear()
-                project.natures = ['org.eclipse.jdt.core.javanature']
-            }
-        }
-    }
-    classpath {
-        plusConfigurations = [configurations.compileOnly, configurations.testCompileOnly, configurations.testRuntime]
-        minusConfigurations = []
-    }
-}
-
-tasks['eclipse'].doLast {
-    delete '.settings/org.eclipse.wst.common.component'
-    delete '.settings/org.eclipse.wst.common.project.facet.core.xml'
-}
-
-tasks['cleanEclipse'].doLast {
-    delete '.settings'
-    delete 'bin'
-}
-
-tasks['cleanIdea'].doLast {
-    delete '.idea'
-}
-
-tasks['cleanIdea'].dependsOn 'cleanIdeaWorkspace'
-
 repositories {
     if (System.getenv().GIT_BRANCH == null) {
         mavenLocal()

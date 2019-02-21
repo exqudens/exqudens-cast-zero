@@ -1,15 +1,15 @@
 # Directories
-**/bin/
-**/build/
-**/.gradle/
-**/.nb-gradle/
-**/.idea/
-**/.settings/
+.gradle/
+.settings/
+.idea/
+build/
+bin/
+out/
 
 # Files
+.DS_Store
 .classpath
 .project
-.DS_Store
 *.iml
 *.ipr
 *.iws
