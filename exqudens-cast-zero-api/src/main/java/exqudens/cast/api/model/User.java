@@ -7,6 +7,9 @@ public class User {
     private String name;
     private List<Order> orders;
 
+    public User() {
+    }
+
     public User(String name) {
         this.name = name;
     }

@@ -1,5 +1,24 @@
 package exqudens.cast.test;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.model.Container;
+import exqudens.cast.api.model.Item;
+import exqudens.cast.api.model.Order;
+import exqudens.cast.api.model.User;
+import exqudens.cast.api.model.graph.Graph;
+import exqudens.cast.api.util.Graphs;
+import exqudens.cast.client.ExqudensCastClient;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.startupcheck.StartupCheckStrategy;
+import org.testcontainers.images.builder.ImageFromDockerfile;
+import org.testcontainers.images.builder.dockerfile.DockerfileBuilder;
+import org.testcontainers.shaded.okhttp3.OkHttpClient;
+import org.testcontainers.shaded.okhttp3.Request;
+import org.testcontainers.shaded.okhttp3.Response;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -10,26 +29,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
-
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.startupcheck.StartupCheckStrategy;
-import org.testcontainers.shaded.okhttp3.OkHttpClient;
-import org.testcontainers.shaded.okhttp3.Request;
-import org.testcontainers.shaded.okhttp3.Response;
-
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.model.Container;
-
-import exqudens.cast.api.model.Item;
-import exqudens.cast.api.model.Order;
-import exqudens.cast.api.model.User;
-import exqudens.cast.api.model.graph.Graph;
-import exqudens.cast.api.util.Graphs;
-import exqudens.cast.client.ExqudensCastClient;
 
 public class Test1 {
 
@@ -39,19 +40,24 @@ public class Test1 {
     public static void beforeClass() {
         try {
 
-            Path source = Paths.get("..", "exqudens-cast-zero-server", "build", "libs", "exqudens-cast-zero-server-1.0.0-component.jar");
-            Path target = Paths.get("tmp", "exqudens-cast-zero-server-1.0.0-component.jar");
-            Objects.requireNonNull(source);
-            Objects.requireNonNull(target);
-            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-
-            container = new GenericContainer<>("openjdk:8");
+            Path path = Paths.get("..", "exqudens-cast-zero-server", "build", "libs", "exqudens-cast-zero-server-1.0.0-component.jar");
+            Consumer<DockerfileBuilder> builderConsumer = builder -> {
+                builder
+                        .from("openjdk:8")
+                        .copy(
+                                path.toFile().getAbsolutePath(),
+                                "/usr/src/myapp/" + path.toFile().getName()
+                        )
+                        .cmd("/usr/bin/java", "-jar", "/usr/src/myapp/" + path.toFile().getName())
+                        .build();
+            };
+            ImageFromDockerfile image = new ImageFromDockerfile()
+                    .withDockerfileFromBuilder(builderConsumer)
+                    .withFileFromPath(path.toFile().getAbsolutePath(), path);
+            container = new GenericContainer<>(image);
             container.withLabel("name", "app");
             container.withStartupAttempts(1);
             container.withMinimumRunningDuration(Duration.ofSeconds(30));
-            //container.withCopyFileToContainer(MountableFile.forHostPath(path), "/usr/src/myapp/exqudens-cast-zero-server-1.0.0-component.jar");
-            container.withFileSystemBind(target.getParent().toFile().getAbsolutePath(), "/usr/src/myapp");
-            container.withCommand("/usr/bin/java", "-jar", "/usr/src/myapp/exqudens-cast-zero-server-1.0.0-component.jar");
             container.withExposedPorts(8080);
             container.withStartupCheckStrategy(new StartupCheckStrategy() {
                 @Override
@@ -60,14 +66,14 @@ public class Test1 {
                         List<Container> containers = dockerClient.listContainersCmd().exec();
                         for (Container c : containers) {
                             boolean present = c
-                            .getLabels()
-                            .entrySet()
-                            .stream()
-                            .filter(entry -> "name".equals(entry.getKey()))
-                            .map(Entry::getValue)
-                            .filter(name -> "app".equals(name))
-                            .findFirst()
-                            .isPresent();
+                                    .getLabels()
+                                    .entrySet()
+                                    .stream()
+                                    .filter(entry -> "name".equals(entry.getKey()))
+                                    .map(Entry::getValue)
+                                    .filter(name -> "app".equals(name))
+                                    .findFirst()
+                                    .isPresent();
                             if (present) {
                                 OkHttpClient client = new OkHttpClient();
                                 Response response = client.newCall(new Request.Builder().url("http://localhost:" + c.ports[0].getPublicPort() + "/").build()).execute();
@@ -103,7 +109,7 @@ public class Test1 {
     }
 
     @Test
-    public void test99() {
+    public void test1() {
         try {
 
             List<User> ethalonUsers = new ArrayList<>();
